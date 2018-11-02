@@ -162,10 +162,10 @@ i2b2.hive.communicatorFactory = function(cellCode){
 		}
 
 		commOptions.postBody = sMessage;
-		if (commOptions.asynchronous) {
+		//if (commOptions.asynchronous) {
 			commOptions.onSuccess = this._defaultCallbackOK;
 			commOptions.onFailure = this._defaultCallbackFAIL;
-		}
+		//}
 		var tmp = Object.keys(commOptions);
 		tmp = tmp.without("asynchronous");
 		tmp = tmp.without("contentType");
@@ -193,9 +193,41 @@ i2b2.hive.communicatorFactory = function(cellCode){
 		console.groupEnd();
 		execBubble.timeSent = new Date();
 		commOptions.i2b2_execBubble = execBubble;
+		
+		
+		var myCallback = {
+				  success: function(o) {
+					  o.request = {};
+					  o.request.options = {}
+					  o.request.options.i2b2_execBubble = commOptions.i2b2_execBubble;
+					  
+					  retCommObj._defaultCallbackOK(o);
+
+					  var t = 1;
+				  
+				  /* success handler code */},
+				  failure: function(o) {
+
+					  o.request = {};
+					  o.request.options = {}
+					  o.request.options.i2b2_execBubble = commOptions.i2b2_execBubble;
+					  retCommObj._defaultCallbackFAIL(o);
+					  /* failure handler code */},
+		};
+
+        YAHOO.util.Connect.setDefaultPostHeader(false);
+        YAHOO.util.Connect.initHeader("Content-Type", "text/xml; charset=utf-8",true);
+		
+		//BG commenting out next command as it makes extra web service call in wrong place
+		// var transaction = YAHOO.util.Connect.asyncRequest(
+				  // 'POST', sProxy_Url, myCallback, commOptions.postBody);
+		
 		if (commOptions.asynchronous) {
 			// perform an ASYNC query 
-			new Ajax.Request(sProxy_Url, commOptions);
+			//	new Ajax.Request(sProxy_Url, commOptions);
+			//BG adding next command as it makes required web service call in right place
+			var transaction = YAHOO.util.Connect.asyncRequest(
+				  'POST', sProxy_Url, myCallback, commOptions.postBody);
 			return true;
 		} else {
 			// perform a SYNC query 
@@ -224,21 +256,21 @@ i2b2.hive.communicatorFactory = function(cellCode){
 				cbMsg.refXML = xmlRecv;
 				var result_status = xmlRecv.getElementsByTagName('result_status')[0];
 				var s = xmlRecv.getElementsByTagName('status')[0];
-        // ** SHRINE-2599 **
-        // if (undefined == s || s.getAttribute('type') != 'DONE') {
-				// 	cbMsg.error = true;
-				// 	cbMsg.errorStatus = transport.status;
-				// 	cbMsg.errorMsg = "The cell's message status could not understood.";
-				// 	console.error(transport.responseText);
-				// }
+				if (undefined == s || s.getAttribute('type') != 'DONE') {
+					cbMsg.error = true;
+					cbMsg.errorStatus = transport.status;
+					cbMsg.errorMsg = "The cell's message status could not understood.";
+					console.error(transport.responseText);
+				}
 			}
 
+			//BG commenting out next if block as it adds extra log entry in the xml debug window
 			// send the result message to the callback function
-			if (i2b2.PM.login_debugging === undefined || (i2b2.PM.login_debugging && !i2b2.PM.login_debugging_suspend)){
-				// broadcast a debug message to any sniffers/tools
-				var sniffPackage = i2b2.h.BuildSniffPack(execBubble.cellName, execBubble.funcName, cbMsg, execBubble.reqOrigin);
-				execBubble.self._SniffMsg.fire(sniffPackage);
-			}
+			// if (i2b2.PM.login_debugging === undefined || (i2b2.PM.login_debugging && !i2b2.PM.login_debugging_suspend)){
+				// // broadcast a debug message to any sniffers/tools
+				// var sniffPackage = i2b2.h.BuildSniffPack(execBubble.cellName, execBubble.funcName, cbMsg, execBubble.reqOrigin);
+				// execBubble.self._SniffMsg.fire(sniffPackage);
+			// }
 
 			// attach the parse() function
 			if (cbMsg.error || !execBubble.self._commData[execBubble.funcName]) {
@@ -283,7 +315,7 @@ i2b2.hive.communicatorFactory = function(cellCode){
 			error: false
 		};
 		// check the status from the message
-		var xmlRecv = transport.responseXML;
+		var xmlRecv = null; //transport.responseXML;
 		if ((!xmlRecv)&&(transport.responseText.length)) {
 			xmlRecv = i2b2.h.parseXml(transport.responseText);
 		}
@@ -300,14 +332,13 @@ i2b2.hive.communicatorFactory = function(cellCode){
 				var has_error = true;
 			} else {
 				var s = xmlRecv.getElementsByTagName('status')[0];
-      }
-      // ** SHRINE-2599 **
-			// if (has_error || s.getAttribute('type') != 'DONE') {
-			// 	cbMsg.error = true;
-			// 	cbMsg.errorStatus = transport.status;
-			// 	cbMsg.errorMsg = "The cell's status message could not be understood.";
-			// 	console.error(transport.responseText);
-			// }
+			}
+			if (has_error || s.getAttribute('type') != 'DONE') {
+				cbMsg.error = true;
+				cbMsg.errorStatus = transport.status;
+				cbMsg.errorMsg = "The cell's status message could not be understood.";
+				console.error(transport.responseText);
+			}
 		}
 		// attach the parse() function
 		if (cbMsg.error || !execBubble.self._commData[execBubble.funcName]) {
@@ -328,6 +359,7 @@ i2b2.hive.communicatorFactory = function(cellCode){
 			execBubble.self._SniffMsg.fire(sniffPackage);
 		}
 		// return results to caller
+		if (origCallback !== undefined )
 		if (getObjectClass(origCallback)=='i2b2_scopedCallback') {
 			origCallback.callback.call(origCallback.scope, cbMsg);
 		} else {
@@ -365,6 +397,7 @@ i2b2.hive.communicatorFactory = function(cellCode){
 			execBubble.self._SniffMsg.fire(sniffPackage);
 		}
 		// return results to caller
+		if (origCallback !== undefined)
 		if (getObjectClass(origCallback)=='i2b2_scopedCallback') {
 			origCallback.callback.call(origCallback.scope, cbMsg);
 		} else {

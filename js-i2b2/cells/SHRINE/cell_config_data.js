@@ -2,7 +2,9 @@
 // every file in this list will be loaded after the cell's Init function is called
 {
   files: [
-    "dist/shrine.bundle.js"
+      "dist/shrine.bundle.js"
+    //"SHRINE_ctrl.js",
+    //"i2b2_msgs.js"
   ],
   css: [],
   config: {
@@ -10,8 +12,8 @@
     name: "SHRINE Cell",
     description: "The SHRINE cell...",
     category: ["core","cell","shrine"],
-    newTopicURL: "https://shrine-hostname.here:6443/steward/client/index.html",
-    readApprovedURL:"https://shrine-hostname.here:6443/shrine/rest/i2b2/request",
+    newTopicURL: "https://shrine-dev.bmi.emory.edu/steward/client/index.html",
+    readApprovedURL:"https://shrine-dev.bmi.emory.edu/shrine/rest/i2b2/request",
     wrapperHtmlFile: "./js-shrine/shrine.plugin.html"
   }
 }

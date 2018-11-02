@@ -15,6 +15,7 @@ console.time('execute time');
 // ================================================================================================== //
 i2b2.PM.doLogin = function () {
 	i2b2.PM.model.shrine_domain = false;
+	var input_errors = false;
 	// change the cursor
 	// show on GUI that work is being done
 	i2b2.h.LoadingMask.show();
@@ -26,14 +27,16 @@ i2b2.PM.doLogin = function () {
 		var login_username = val;
 	} else {
 		e += "\n  Username is empty";
+		input_errors = true;
 	}
 	var val = i2b2.PM.udlogin.inputPass.value;
 	if (!val.blank()) {
 		var login_password = val;
 	} else {
 		e += "\n  Password is empty";
+		input_errors = true;
 	}
-	sessionStorage.setItem('shrine.auth', btoa(login_username + ':' + login_password));
+	//sessionStorage.setItem('shrine.auth', btoa(login_username + ':' + login_password));
 	var p = i2b2.PM.udlogin.inputDomain;
 	var val = p.options[p.selectedIndex].value;
 	if (!val.blank()) {
@@ -62,6 +65,9 @@ i2b2.PM.doLogin = function () {
 			}
 			if (p[val].isDQ != undefined) {
 				i2b2.PM.model.distributed_query = Boolean.parseTo(p[val].isDQ);
+			}
+			if (typeof p[val].installer !== undefined) {
+				i2b2.PM.model.installer_path = p[val].installer;
 			} else {
 				i2b2.PM.model.distributed_query = false;
 			}
@@ -85,35 +91,37 @@ i2b2.PM.doLogin = function () {
 		domain: login_domain,
 		project: login_project
 	};
+	if(!input_errors){
 	i2b2.PM.ajax.getUserAuth("PM:Login", parameters, callback, transportOptions);
+	} else {
+		alert(e);
+	}
 
 }
 
 
 // ================================================================================================== //
-i2b2.PM._processUserConfig = function (data) {
-	console.group("PROCESS Login XML");
-	console.debug(" === run the following command in Firebug to view message sniffer: i2b2.hive.MsgSniffer.show() ===");
-
-
-
-	// save the valid data that was passed into the PM cell's data model
-	i2b2.PM.model.login_username = data.msgParams.sec_user;
-	try {
-		var t = i2b2.h.XPath(data.refXML, '//user/password')[0]; //[@token_ms_timeout]
-		i2b2.PM.model.login_password = i2b2.h.Xml2String(t);
-
-		var timeout = t.getAttribute('token_ms_timeout');
-		if (timeout == undefined || timeout < 300001) {
-			i2b2.PM.model.IdleTimer.start(1800000 - 300000); //timeout); //timeout-60000);		
-
+i2b2.PM._processUserConfigSuccess = function (data) {
+    try {
+		var t_passwd = i2b2.h.XPath(data.refXML, '//user/password')[0]; //[@token_ms_timeout]
+		i2b2.PM.model.login_password = i2b2.h.Xml2String(t_passwd);
+		var t_username = i2b2.h.XPath(data.refXML, '//user/user_name/text()')[0];
+	        i2b2.PM.model.login_username = i2b2.h.Xml2String(t_username);
+	        var timeout = t_passwd.getAttribute('token_ms_timeout');
+	        if (timeout == undefined || timeout < 300001) {
+		    i2b2.PM.model.IdleTimer.start(1800000-300000); //timeout); //timeout-60000);		
 		} else {
 
 			i2b2.PM.model.IdleTimer.start(timeout - 300000); //timeout); //timeout-60000);		
 		}
 	} catch (e) {
-		//console.error("Could not find returned password node in login XML");
-		i2b2.PM.model.login_password = "<password>" + data.msgParams.sec_pass + "</password>\n";
+		if (i2b2.PM.model.EC_I2B2_INTEGRATION_URL) {
+	    //console.error("Could not find returned password node in login XML");
+	    i2b2.PM.model.login_password = "<password>"+data.msgParams.sec_pass+"</password>\n";
+	    console.error("I2b2 web client did not get a user account back. Perhaps the i2b2 server was restarted?");
+	    alert("I2b2 web client got an unexpected response from the i2b2 server. Try reloading the page.");
+		    return false;
+		}
 	}
 	// clear the password
 	i2b2.PM.udlogin.inputPass.value = "";
@@ -125,7 +133,7 @@ i2b2.PM._processUserConfig = function (data) {
 
 		return;
 	}
-
+	i2b2.PM.model.otherAuthMethod = false;
 	i2b2.PM.model.isAdmin = false;
 	try {
 		var t = i2b2.h.XPath(data.refXML, '//user/full_name')[0];
@@ -135,6 +143,12 @@ i2b2.PM._processUserConfig = function (data) {
 		var t = i2b2.h.XPath(data.refXML, '//user/is_admin')[0];
 		if (Boolean.parseTo(i2b2.h.getXNodeVal(t, 'is_admin'))) {
 			i2b2.PM.model.isAdmin = true;
+		}		
+	} catch (e) { }		
+	try { // BUG FIX: WEBCLIENT-130
+		var t = i2b2.h.XPath(data.refXML, '//user/param[@name="authentication_method"]')[0];
+		if((i2b2.h.getXNodeVal(t, 'param').toUpperCase() == "NTLM") || (t != undefined)){
+			i2b2.PM.model.otherAuthMethod = true;
 		}
 	} catch (e) { }
 	i2b2.PM.model.login_domain = data.msgParams.sec_domain;
@@ -159,9 +173,9 @@ i2b2.PM._processUserConfig = function (data) {
 		var code = projs[i].getAttribute('id');
 		i2b2.PM.model.projects[code] = {};
 		i2b2.PM.model.projects[code].name = i2b2.h.getXNodeVal(projs[i], 'name');
+		i2b2.PM.model.projects[code].path = i2b2.h.getXNodeVal(projs[i], 'path');
 		var roledetails = i2b2.h.XPath(projs[i], 'descendant-or-self::role');
 		i2b2.PM.model.projects[code].roles = {};
-		i2b2.PM.model.projects[code].path = i2b2.h.getXNodeVal(projs[i], 'path');
 		/*
 		for (var d=0; d<roledetails.length; d++) {
 			//alert(roledetails[d].textContent);
@@ -182,14 +196,21 @@ i2b2.PM._processUserConfig = function (data) {
 			if (projdetails[d].textContent) {
 				i2b2.PM.model.projects[code].details[paramName] = projdetails[d].textContent;
 			} else if (projdetails[d].firstChild) {
-				i2b2.PM.model.projects[code].details[paramName] = projdetails[d].firstChild.nodeValue.unescapeHTML();
+				// BUG FIX - WEBCLIENT-118
+				if(((browserIsIE8 && ieInCompatibilityMode) || browserIsIE11) && paramName=="announcement")
+					i2b2.PM.model.projects[code].details[paramName] = projdetails[d].firstChild.nodeValue;                                      
+				else
+					i2b2.PM.model.projects[code].details[paramName] = projdetails[d].firstChild.nodeValue.unescapeHTML();                  
 			}
 		}
 	}
 
 	if (!i2b2.PM.model.isAdmin && i2b2.PM.model.admin_only) {
-		alert("Requires ADMIN role, please contact your system administrator");
-		try { i2b2.PM.view.modal.login.show(); } catch (e) { }
+		if (data.msgResponse == "")
+					alert("The PM Cell is down or the address in the properties file is incorrect.");	
+		else
+			alert("Requires ADMIN role, please contact your system administrator");
+		try { i2b2.PM.view.modal.login.show(); } catch(e) {}
 		return true;
 	} else if (i2b2.PM.model.admin_only) {
 		// default to the first project
@@ -216,8 +237,10 @@ i2b2.PM._processUserConfig = function (data) {
 			alert("The PM Cell is down or the address in the properties file is incorrect.");
 			//alert("Your account does not have access to any i2b2 projects.");		
 		}
-		try { i2b2.PM.view.modal.login.show(); } catch (e) { }
-		return true;
+	    if (undefined == i2b2.PM.model.EC_I2B2_INTEGRATION_URL) {
+		    try { i2b2.PM.view.modal.login.show(); } catch(e) {}
+	    }
+	    return true;
 	} else if (projs.length == 1) {
 		// default to the only project the user has access to
 		i2b2.PM.model.login_project = i2b2.h.XPath(projs[0], 'attribute::id')[0].nodeValue;
@@ -234,16 +257,279 @@ i2b2.PM._processUserConfig = function (data) {
 		// display list of possible projects for the user to select
 		i2b2.PM.view.modal.projectDialog.showProjects();
 	}
+	
+}
+
+i2b2.PM._processUserConfigFailure = function () {
+    if (i2b2.PM.model.EC_SUPPORT_CONTACT) {
+	alert('You are not authorized to use i2b2. To request access, contact us at ' + i2b2.PM.model.EC_SUPPORT_CONTACT + '.');
+    } else {
+	alert('You are not authorized to use i2b2. Please request access.');
+    }
+    i2b2.PM.doLogout();
+}
+
+i2b2.PM._destroyEurekaClinicalSessions = function(callback) {
+    if (i2b2.PM.model.EC_I2B2_INTEGRATION_URL) {
+	new Ajax.Request(i2b2.PM.model.EC_I2B2_INTEGRATION_URL + '/destroy-session', {
+	    method: 'get',
+	    onComplete: function (response) {
+		if (i2b2.PM.model.EC_USER_AGREEMENT_URL) {
+		    new Ajax.Request(i2b2.PM.model.EC_USER_AGREEMENT_URL + '/destroy-session', {
+			method: 'get',
+			onComplete: function (response) {
+			    if (callback) {
+				callback();
+			    }
+			}
+		    });
+		} else if (callback) {
+		    callback();
+		}
+	    }
+	});
+    } else if (callback) {
+    	callback();
+    }
+}
+
+i2b2.PM.getEurekaClinicalSession = function(url, params) {
+    var theIframe = new Element('iframe', {src: url + '/protected/get-session'});
+    var timeout = null;
+    
+    function receiveMessage(event) {
+	theIframe = document.body.removeChild(theIframe);
+	window.removeEventListener('message', receiveMessage, false);
+	if (timeout) {
+	    clearTimeout(timeout);
+	}
+	var origin = event.origin || event.originalEvent.origin;
+	if (url.startsWith(origin)) {
+	    params.onSuccess({status: 200});
+	} else {
+	    params.onFailure({status: 401});
+	}
+    }
+    window.addEventListener('message', receiveMessage, false);
+
+    function onTimeout() {
+	window.removeEventListener('message', receiveMessage);
+	theIframe = document.body.removeChild(theIframe);
+	params.onFailure({status: 401});
+    }
+    
+    theIframe.style.display = 'none';
+    theIframe = document.body.appendChild(theIframe);
+    timeout = setTimeout(onTimeout, 1000 * 30);
+}
+
+i2b2.PM._checkUserAgreement = function(data, successCallback, skipRetry) {
+    if (i2b2.PM.model.EC_I2B2_INTEGRATION_URL && i2b2.PM.model.EC_USER_AGREEMENT_URL) {
+		new Ajax.Request(i2b2.PM.model.EC_I2B2_INTEGRATION_URL + '/proxy-resource/useragreementstatuses/me?status=ACTIVE', {
+		    method: 'get',
+		    contentType: 'application/json',
+		    onSuccess: function (response) {
+			if (!successCallback) {
+			    i2b2.PM._processUserConfigSuccess(data);
+			} else {
+			    successCallback();
+			}
+		    },
+		    onFailure: function (response) {
+			switch (response.status) {
+			case 404:
+			    window.location=i2b2.PM.model.EC_USER_AGREEMENT_URL + '/protected/present?service=' + window.location.href;
+			    break;
+			case 401:
+			    if (!skipRetry) {
+				i2b2.PM._destroyEurekaClinicalSessions(function() {
+				    i2b2.PM._checkUserAgreement(data, hasi2b2user, true);
+				});
+				break;
+			    }
+			default:
+			    alert('An error occurred on the i2b2 server. Try reloading the page.');
+			}
+		    }
+		});
+    }
+}
+
+i2b2.PM._processUserConfig = function (data) {
+	console.group("PROCESS Login XML");
+	console.debug(" === run the following command in Firebug to view message sniffer: i2b2.hive.MsgSniffer.show() ===");
+
+	if (!data.refXML) {
+                console.error("I2b2 web client got no XML response from the i2b2 server. Maybe the server is not up?");
+                alert("I2b2 web client got no response from the i2b2 server. Reload the page in your browser to try again.");
+                return false;
+        }
+
+	// save the valid data that was passed into the PM cell's data model
+	i2b2.PM.model.login_username = data.msgParams.sec_user;
+	var errors = i2b2.h.XPath(data.refXML, "//response_header/result_status/status[@type='ERROR']/text()");
+	var t_error;
+	if (errors && errors.length > 0) {
+		t_error = i2b2.h.Xml2String(errors[0]);
+	} else {
+		t_error = null;
+	}
+        if (!t_error) {
+	    if (!i2b2.PM.model.EC_USER_AGREEMENT_URL) {
+		i2b2.PM._processUserConfigSuccess(data);
+	    } else {
+		i2b2.PM._checkUserAgreement(data);   
+	    }
+	} else {
+	switch (t_error) {
+	    case 'EAUTHORIZATION':
+	        if (!i2b2.PM.model.EC_I2B2_INTEGRATION_URL) {
+		    i2b2.PM._processUserConfigFailure();
+		} else {
+			    new Ajax.Request(i2b2.PM.model.EC_I2B2_INTEGRATION_URL + '/proxy-resource/users/auto', {
+				method: 'get',
+				contentType: 'application/json',
+				onSuccess: function (response) {
+				    if (!i2b2.PM.model.EC_USER_AGREEMENT_URL) {
+					new Ajax.Request(i2b2.PM.model.EC_I2B2_INTEGRATION_URL + '/proxy-resource/i2b2users/auto', {
+					    method: 'post',
+					    onSuccess: function (response) {
+						window.location.reload();
+					    },
+					    onFailure: function (response) {
+						i2b2.PM._processUserConfigFailure();
+					    }
+					});
+				    } else {
+					i2b2.PM._checkUserAgreement(data, function () {
+					    new Ajax.Request(i2b2.PM.model.EC_I2B2_INTEGRATION_URL + '/proxy-resource/i2b2users/auto', {
+						method: 'post',
+						onSuccess: function (response) {
+						    window.location.reload();
+						},
+						onFailure: function (response) {
+						    i2b2.PM._processUserConfigFailure();
+						}
+					    });
+					});
+				    }
+				},
+				onFailure: function (response) {
+				    i2b2.PM._processUserConfigFailure();
+				}
+			    });
+		}
+	        return false;
+	    case 'EINTERNAL':
+		console.error('Internal server error.');
+		alert('An error occurred on the i2b2 server. Try reloading the page.');
+	        return false;
+            default:
+                i2b2.PM._processUserConfigSuccess(data);
+	}
+	}
+	
 
 }
 
 
 // ================================================================================================== //
 i2b2.PM.doLogout = function () {
-	// bug fix - must reload page to avoid dirty data from lingering
-	sessionStorage.removeItem('shrine.auth');
-	window.location.reload();
+    i2b2.PM._destroyEurekaClinicalSessions(function() {
+	if (i2b2.PM.model.CAS_SERVER) {
+	    if (i2b2.PM.model.CAS_LOGOUT_TYPE === 'CAS') {
+		window.location=i2b2.PM.model.CAS_SERVER + "/logout";
+                return;
+	    }
+	}
+	if (i2b2.PM.model.EC_LOGOUT_LANDING_PAGE_URL) {
+	    window.location=i2b2.PM.model.EC_LOGOUT_LANDING_PAGE_URL;
+	} else {
+	    // bug fix - must reload page to avoid dirty data from lingering
+	    window.location.reload();
+	}
+    });
 }
+
+
+i2b2.PM.changePassword = {
+	show: function() {
+		if (!i2b2.PM.changePassword.yuiPanel) {
+					// load the help page
+		
+			// show non-modal dialog with help documentation		
+			var panel = new YAHOO.widget.Panel("changepassword-viewer-panel", { 
+				draggable: true,
+				zindex:10000,
+				width: "300px", 
+				height: "200px", 
+				autofillheight: "body", 
+				constraintoviewport: true, 
+				context: ["showbtn", "tl", "bl"]
+			}); 
+			$("changepassword-viewer-panel").show();
+			panel.render(document.body); 
+			panel.show(); 
+			i2b2.PM.changePassword.yuiPanel = panel;
+			
+			
+		} else {
+			i2b2.PM.changePassword.yuiPanel.show();
+		}
+		// load the help page
+		
+	},
+	hide: function() {
+		try {
+			i2b2.PM.changePassword.yuiPanel.hide();
+			//$("changepassword-viewer-panel").hide();
+		} catch (e) {}
+	},
+	run: function() {
+		try {
+			var curpass = $('curpass').value;
+			var newpass = $('newpass').value;
+			var retypepass = $('retypepass').value;
+			
+			if (newpass != retypepass) {
+				alert("New password and Retype Password dont match");
+			} else { 
+				
+				// callback processor
+				var scopedCallback = new i2b2_scopedCallback();
+				scopedCallback.scope = this;
+				scopedCallback.callback = function(results) {
+					// THIS function is used to process the AJAX results of the getChild call
+					//		results data object contains the following attributes:
+					//			refXML: xmlDomObject <--- for data processing
+					//			msgRequest: xml (string)
+					//			msgResponse: xml (string)
+					//			error: boolean
+					//			errorStatus: string [only with error=true]
+					//			errorMsg: string [only with error=true]
+					
+					// check for errors
+					if (results.error) {
+						alert('Current password is incorrect');
+						console.error("Bad Results from Cell Communicator: ",results);
+						return false;
+					}
+					alert("Password successfully changed");	
+					i2b2.PM.changePassword.yuiPanel.hide();
+
+
+				}
+				
+				// AJAX CALL USING THE EXISTING CRC CELL COMMUNICATOR
+				//i2b2.CRC.ajax.getPDO_fromInputList
+				i2b2.PM.ajax.setPassword("Plugin:PM", {sec_oldpassword:curpass, sec_newpassword: newpass}, scopedCallback);
+				
+			}
+			//$("changepassword-viewer-panel").hide();
+		} catch (e) {}
+	}
+};
+
 
 
 i2b2.PM.view.modal.projectDialog = {
@@ -472,6 +758,7 @@ i2b2.PM._processLaunchFramework = function () {
 				//cellRef.xmlStr = i2b2.h.Xml2String(x);
 				var y = i2b2.h.XPath(oXML, "//cell_data[@id='" + cellKey + "']");
 
+				//First find the Cells that in the proejct selected.
 				for (var i = y.length; i >= 0; i--) {
 
 					var x = i2b2.h.XPath(oXML, "//cell_data[@id='" + cellKey + "']")[i - 1];
@@ -484,14 +771,20 @@ i2b2.PM._processLaunchFramework = function () {
 					}
 				}
 
+				//If no cell is found that get the '/'
 				if (!cellRef.name) {
-					var x = i2b2.h.XPath(oXML, "//cell_data[@id='" + cellKey + "']")[0];
-					cellRef.name = i2b2.h.getXNodeVal(x, "name");
-					cellRef.project_path = i2b2.h.getXNodeVal(x, "project_path");
-					cellRef.url = i2b2.h.getXNodeVal(x, "url");
-					cellRef.xmlStr = i2b2.h.Xml2String(x);
+					for (var i=0; i<y.length; i++)
+					{					
+						var  x = i2b2.h.XPath(oXML, "//cell_data[@id='"+cellKey+"']")[i];
+						if ( i2b2.h.getXNodeVal(x, "project_path") == "/" )
+						{
+							cellRef.name = i2b2.h.getXNodeVal(x, "name");
+							cellRef.project_path = i2b2.h.getXNodeVal(x, "project_path");
+							cellRef.url = i2b2.h.getXNodeVal(x, "url");
+							cellRef.xmlStr = i2b2.h.Xml2String(x);
+						}
+					}
 				}
-
 				// params
 				var x = i2b2.h.XPath(oXML, "//cell_data[@id='" + cellKey + "']/param[@name]");
 				var l = x.length;
@@ -543,13 +836,14 @@ i2b2.PM._processLaunchFramework = function () {
 			delete i2b2[cellKey];
 		}
 	}
-
+/* Legacy SHRINE code - Removed 6/3/16
 	// see if Shrine was loaded by the server
 	var t = i2b2.hive.cfg.lstCells["SHRINE"];
 	if (!Object.isUndefined(t) && t.serverLoaded) {
 		i2b2.PM.model.shrine_domain = true;
 	}
 	delete t;
+*/
 
 
 	// create a list of valid Cells that are loaded for this session
