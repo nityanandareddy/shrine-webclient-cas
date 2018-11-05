@@ -42,30 +42,6 @@ i2b2.PM.model.IdleTimer.subscribe("idle", function(){
 
 		//if (!i2b2.PM.model.IdleTimer.dialogTimeout) {	
 		i2b2.PM.model.reLogin = true;
-		
-	
-	//	i2b2.h.LoadingMask.show();
-	//	i2b2.PM.doLoginDialog();
-		
-
-/*
-		var r=confirm("Your session will automatically time out in 5 minutes due to inactivity.  Please click \"OK\" to continue your session, or click cancel to log out.");
-		if (r==true)
-		  {
-				i2b2.PM.model.IdleTimer.stop();
-				i2b2.PM.udlogin.inputPass.value = i2b2.PM.model.login_password.substring(i2b2.PM.model.login_password.indexOf(">")+1,i2b2.PM.model.login_password.lastIndexOf("<") );
-						
-				i2b2.h.LoadingMask.show();
-
-				i2b2.PM.doLogin();			  
-		  }
-		else
-		  {
-			  i2b2.PM.doLogout();
-		  }
-		
-*/
-
 			
 			var handleCancel = function() {
 				i2b2.PM.doLogout();
