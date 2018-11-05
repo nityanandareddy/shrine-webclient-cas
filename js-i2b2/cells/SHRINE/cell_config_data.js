@@ -10,8 +10,8 @@
     name: "SHRINE Cell",
     description: "The SHRINE cell...",
     category: ["core","cell","shrine"],
-    newTopicURL: "https://shrine-hostname.here:6443/steward/client/index.html",
-    readApprovedURL:"https://shrine-hostname.here:6443/shrine/rest/i2b2/request",
+    newTopicURL: "https://localhost:6443/steward/client/index.html",
+    readApprovedURL:"https://localhost:6443/shrine/rest/i2b2/request",
     wrapperHtmlFile: "./js-shrine/shrine.plugin.html"
   }
 }

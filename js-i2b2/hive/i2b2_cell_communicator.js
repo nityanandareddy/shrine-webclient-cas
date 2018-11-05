@@ -193,6 +193,8 @@ i2b2.hive.communicatorFactory = function(cellCode){
 		console.groupEnd();
 		execBubble.timeSent = new Date();
 		commOptions.i2b2_execBubble = execBubble;
+		YAHOO.util.Connect.setDefaultPostHeader(false);
+        YAHOO.util.Connect.initHeader("Content-Type", "text/xml; charset=utf-8",true);
 		if (commOptions.asynchronous) {
 			// perform an ASYNC query 
 			new Ajax.Request(sProxy_Url, commOptions);

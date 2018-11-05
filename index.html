@@ -61,6 +61,7 @@
 <script type="text/javascript" src="js-ext/yui/build/button/button.js"></script>
 <script type="text/javascript" src="js-ext/yui/build/paginator/paginator-min.js"></script>
 <script type="text/javascript" src="js-ext/yui/build/slider/slider-min.js"></script>
+<script src="js-i2b2/cells/PM/cas_login.js"></script>
 
 <!-- BG -->
 <link type="text/css" href="js-i2b2/cells/CRC/assets/query_report.css" rel="stylesheet" />
@@ -212,7 +213,8 @@ $.noConflict();
                             // by editing the CSS file.  You can remark out the lines below with no ill effect.  Use the following
                             // javascript function to display the modal login form: i2b2.hive.PM.doLoginDialog();
                             //cellObj.doConnectForm($('loginusr'),$('loginpass'),$('logindomain'), $('loginsubmit'));
-                            i2b2.PM.doLoginDialog();
+                            //i2b2.PM.doLoginDialog();
+                            i2b2.PM.doCASLogin();
                             break;
                     }
                 })

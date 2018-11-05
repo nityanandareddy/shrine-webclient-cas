@@ -48,11 +48,11 @@ i2b2.PM.model.IdleTimer.subscribe("idle", function(){
 			};
 			var loopBackSubmit = function() {
 				i2b2.PM.model.IdleTimer.stop();
-				i2b2.PM.udlogin.inputPass.value = i2b2.PM.model.login_password.substring(i2b2.PM.model.login_password.indexOf(">")+1,i2b2.PM.model.login_password.lastIndexOf("<") );
+				//i2b2.PM.udlogin.inputPass.value = i2b2.PM.model.login_password.substring(i2b2.PM.model.login_password.indexOf(">")+1,i2b2.PM.model.login_password.lastIndexOf("<") );
 						
 				i2b2.h.LoadingMask.show();
 
-				i2b2.PM.doLogin();
+				i2b2.PM.doCASLogin();
 				i2b2.PM.model.dialogTimeout.hide();
 				i2b2.h.LoadingMask.hide();
 				};														   
