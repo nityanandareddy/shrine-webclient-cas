@@ -97,6 +97,8 @@ i2b2.PM._processUserConfigSuccess = function (data) {
 		i2b2.PM.model.login_password = i2b2.h.Xml2String(t_passwd);
 		var t_username = i2b2.h.XPath(data.refXML, '//user/user_name/text()')[0];
 	        i2b2.PM.model.login_username = i2b2.h.Xml2String(t_username);
+	        var password_token = i2b2.PM.model.login_password.substring(i2b2.PM.model.login_password.indexOf(">")+1,i2b2.PM.model.login_password.lastIndexOf("<") );
+	        sessionStorage.setItem('shrine.auth', btoa(i2b2.PM.model.login_username + ':' + password_token));
 	        var timeout = t_passwd.getAttribute('token_ms_timeout');
 	        if (timeout == undefined || timeout < 300001) {
 		    i2b2.PM.model.IdleTimer.start(1800000-300000); //timeout); //timeout-60000);		
@@ -414,6 +416,7 @@ i2b2.PM.doLogout = function () {
     i2b2.PM._destroyEurekaClinicalSessions(function() {
 	if (i2b2.PM.model.CAS_SERVER) {
 	    if (i2b2.PM.model.CAS_LOGOUT_TYPE === 'CAS') {
+	    sessionStorage.removeItem('shrine.auth');
 		window.location=i2b2.PM.model.CAS_SERVER + "/logout";
                 return;
 	    }
